@@ -4,7 +4,7 @@
  * @author René Fermann
  */
 
-import * as fsWalk from '@nodelib/fs.walk';
+import * as fsWalk from '../core/fsWalk';
 import { getFileExtensions } from 'eslint-module-utils/ignore';
 import resolve from 'eslint-module-utils/resolve';
 import visit from 'eslint-module-utils/visit';
@@ -175,7 +175,7 @@ function listFilesToProcess(src, extensions, context) {
     if (FileEnumerator) {
       return listFilesUsingFileEnumerator(FileEnumerator, src, extensions);
     } else {
-    // If not, then we can try even older versions of this capability (listFilesToProcess)
+      // If not, then we can try even older versions of this capability (listFilesToProcess)
       return listFilesWithLegacyFunctions(src, extensions);
     }
   }
@@ -681,7 +681,9 @@ module.exports = {
       exports = exportList.get(file);
 
       if (!exports) {
-        console.error(`file \`${file}\` has no exports. Please update to the latest, and if it still happens, report this on https://github.com/import-js/eslint-plugin-import/issues/2866!`);
+        console.error(
+          `file \`${file}\` has no exports. Please update to the latest, and if it still happens, report this on https://github.com/import-js/eslint-plugin-import/issues/2866!`,
+        );
       }
 
       // special case: export * from
@@ -704,11 +706,11 @@ module.exports = {
       }
 
       // exportsList will always map any imported value of 'default' to 'ImportDefaultSpecifier'
-      const exportsKey = exportedValue === DEFAULT ? IMPORT_DEFAULT_SPECIFIER : exportedValue;
+      const exportsKey =        exportedValue === DEFAULT ? IMPORT_DEFAULT_SPECIFIER : exportedValue;
 
       const exportStatement = exports.get(exportsKey);
 
-      const value = exportsKey === IMPORT_DEFAULT_SPECIFIER ? DEFAULT : exportsKey;
+      const value =        exportsKey === IMPORT_DEFAULT_SPECIFIER ? DEFAULT : exportsKey;
 
       if (typeof exportStatement !== 'undefined') {
         if (exportStatement.whereUsed.size < 1) {
@@ -867,7 +869,10 @@ module.exports = {
         // support for export { value } from 'module'
         if (astNode.type === EXPORT_NAMED_DECLARATION) {
           if (astNode.source) {
-            resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
+            resolvedPath = resolve(
+              astNode.source.raw.replace(/('|")/g, ''),
+              context,
+            );
             astNode.specifiers.forEach((specifier) => {
               const name = specifier.local.name || specifier.local.value;
               if (name === DEFAULT) {
@@ -880,12 +885,18 @@ module.exports = {
         }
 
         if (astNode.type === EXPORT_ALL_DECLARATION) {
-          resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
+          resolvedPath = resolve(
+            astNode.source.raw.replace(/('|")/g, ''),
+            context,
+          );
           newExportAll.add(resolvedPath);
         }
 
         if (astNode.type === IMPORT_DECLARATION) {
-          resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
+          resolvedPath = resolve(
+            astNode.source.raw.replace(/('|")/g, ''),
+            context,
+          );
           if (!resolvedPath) {
             return;
           }
@@ -903,9 +914,15 @@ module.exports = {
           }
 
           astNode.specifiers
-            .filter((specifier) => specifier.type !== IMPORT_DEFAULT_SPECIFIER && specifier.type !== IMPORT_NAMESPACE_SPECIFIER)
+            .filter(
+              (specifier) => specifier.type !== IMPORT_DEFAULT_SPECIFIER
+                && specifier.type !== IMPORT_NAMESPACE_SPECIFIER,
+            )
             .forEach((specifier) => {
-              newImports.set(specifier.imported.name || specifier.imported.value, resolvedPath);
+              newImports.set(
+                specifier.imported.name || specifier.imported.value,
+                resolvedPath,
+              );
             });
         }
       });
