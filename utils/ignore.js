@@ -14,7 +14,7 @@ const log = require('debug')('eslint-plugin-import:utils:ignore');
 function makeValidExtensionSet(settings) {
   // start with explicit JS-parsed extensions
   /** @type {Set<import('./types').Extension>} */
-  const exts = new Set(settings['import/extensions'] || ['.js']);
+  const exts = new Set(settings['import/extensions'] || ['.js', '.mjs', '.cjs']);
 
   // all alternate parser extensions are also valid
   if ('import/parsers' in settings) {

@@ -17,51 +17,29 @@ import ExportMapBuilder from '../exportMap/builder';
 import recursivePatternCapture from '../exportMap/patternCapture';
 import docsUrl from '../docsUrl';
 
-let FileEnumerator;
-let listFilesToProcess;
-
-try {
-  ({ FileEnumerator } = require('eslint/use-at-your-own-risk'));
-} catch (e) {
-  try {
-    // has been moved to eslint/lib/cli-engine/file-enumerator in version 6
-    ({ FileEnumerator } = require('eslint/lib/cli-engine/file-enumerator'));
-  } catch (e) {
-    try {
-      // eslint/lib/util/glob-util has been moved to eslint/lib/util/glob-utils with version 5.3
-      const { listFilesToProcess: originalListFilesToProcess } = require('eslint/lib/util/glob-utils');
-
-      // Prevent passing invalid options (extensions array) to old versions of the function.
-      // https://github.com/eslint/eslint/blob/v5.16.0/lib/util/glob-utils.js#L178-L280
-      // https://github.com/eslint/eslint/blob/v5.2.0/lib/util/glob-util.js#L174-L269
-      listFilesToProcess = function (src, extensions) {
-        return originalListFilesToProcess(src, {
-          extensions,
-        });
-      };
-    } catch (e) {
-      const { listFilesToProcess: originalListFilesToProcess } = require('eslint/lib/util/glob-util');
-
-      listFilesToProcess = function (src, extensions) {
-        const patterns = src.concat(flatMap(src, (pattern) => extensions.map((extension) => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`)));
-
-        return originalListFilesToProcess(patterns);
-      };
-    }
+/**
+ * Given a src pattern and list of supported extensions, return a list of files to process
+ * with this rule.
+ * @param {string} src - file, directory, or glob pattern of files to act on
+ * @param {string[]} extensions - list of supported file extensions
+ * @param {object} context - the eslint context object
+ * @returns the list of files that this rule will evaluate.
+ */
+function listFilesToProcess(src, extensions, context) {
+  // If the context object has the new session functions, then prefer those
+  // Otherwise, fallback to using the deprecated `FileEnumerator` for legacy support.
+  // https://github.com/eslint/eslint/issues/18087
+  if (
+    context.session
+    && context.session.isFileIgnored
+    && context.session.isDirectoryIgnored
+  ) {
+    const { default: listFiles } = require('../core/listFiles');
+    return listFiles(src, extensions, context.session);
+  } else {
+    const { default: legacyListFiles } = require('../core/legacyListFiles');
+    return legacyListFiles(src, extensions);
   }
-}
-
-if (FileEnumerator) {
-  listFilesToProcess = function (src, extensions) {
-    const e = new FileEnumerator({
-      extensions,
-    });
-
-    return Array.from(e.iterateFiles(src), ({ filePath, ignored }) => ({
-      ignored,
-      filename: filePath,
-    }));
-  };
 }
 
 const EXPORT_DEFAULT_DECLARATION = 'ExportDefaultDeclaration';
@@ -176,17 +154,35 @@ const isNodeModule = (path) => (/\/(node_modules)\//).test(path);
 const resolveFiles = (src, ignoreExports, context) => {
   const extensions = Array.from(getFileExtensions(context.settings));
 
-  const srcFileList = listFilesToProcess(src, extensions);
+  const srcFileList = listFilesToProcess(src, extensions, context);
 
   // prepare list of ignored files
-  const ignoredFilesList = listFilesToProcess(ignoreExports, extensions);
-  ignoredFilesList.forEach(({ filename }) => ignoredFiles.add(filename));
+  const ignoredFilesList = listFilesToProcess(
+    ignoreExports,
+    extensions,
+    context,
+  );
+
+  // The modern api will return a list of file paths, rather than an object
+  if (ignoredFilesList.length && typeof ignoredFilesList[0] === 'string') {
+    ignoredFiles.push(...ignoredFilesList);
+  } else {
+    ignoredFilesList.forEach(({ filename }) => ignoredFiles.add(filename));
+  }
 
   // prepare list of source files, don't consider files from node_modules
-
-  return new Set(
-    flatMap(srcFileList, ({ filename }) => isNodeModule(filename) ? [] : filename),
-  );
+  let resolvedFiles;
+  if (srcFileList.length && typeof srcFileList[0] === 'string') {
+    resolvedFiles = new Set(
+      srcFileList.filter((filePath) => !isNodeModule(filePath)),
+    );
+  } else {
+    resolvedFiles = new Set(
+      flatMap(srcFileList, ({ filename }) => isNodeModule(filename) ? [] : filename,
+      ),
+    );
+  }
+  return resolvedFiles;
 };
 
 /**
