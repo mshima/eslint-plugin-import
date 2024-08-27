@@ -4,11 +4,10 @@
  * @author René Fermann
  */
 
-import * as fsWalk from '../core/fsWalk';
 import { getFileExtensions } from 'eslint-module-utils/ignore';
 import resolve from 'eslint-module-utils/resolve';
 import visit from 'eslint-module-utils/visit';
-import { dirname, join, resolve as resolvePath } from 'path';
+import { dirname, join } from 'path';
 import readPkgUp from 'eslint-module-utils/readPkgUp';
 import values from 'object.values';
 import includes from 'array-includes';
@@ -17,137 +16,6 @@ import flatMap from 'array.prototype.flatmap';
 import ExportMapBuilder from '../exportMap/builder';
 import recursivePatternCapture from '../exportMap/patternCapture';
 import docsUrl from '../docsUrl';
-
-/**
- * Given a source root and list of supported extensions, use fsWalk and the
- * new `eslint` `context.session` api to build the list of files we want to operate on
- * @param {string[]} srcPaths array of source paths (for flat config this should just be a singular root (e.g. cwd))
- * @param {string[]} extensions list of supported extensions
- * @param session eslint context session object
- * @returns list of files to operate on
- */
-function listFilesWithModernApi(srcPaths, extensions, session) {
-  const files = [];
-
-  for (let i = 0; i < srcPaths.length; i++) {
-    const src = srcPaths[i];
-    // Use walkSync along with the new session api to gather the list of files
-    const entries = fsWalk.walkSync(src, {
-      deepFilter(entry) {
-        const fullEntryPath = resolvePath(src, entry.path);
-
-        // Include the directory if it's not marked as ignore by eslint
-        return !session.isDirectoryIgnored(fullEntryPath);
-      },
-      entryFilter(entry) {
-        const fullEntryPath = resolvePath(src, entry.path);
-
-        // Include the file if it's not marked as ignore by eslint and its extension is included in our list
-        return (
-          !session.isFileIgnored(fullEntryPath)
-          && extensions.find((extension) => entry.path.endsWith(extension))
-        );
-      },
-    });
-
-    // Filter out directories and map entries to their paths
-    files.push(
-      ...entries
-        .filter((entry) => !entry.dirent.isDirectory())
-        .map((entry) => entry.path),
-    );
-  }
-  return files;
-}
-
-/**
- * Attempt to load the internal `FileEnumerator` class, which has existed in a couple
- * of different places, depending on the version of `eslint`.  Try requiring it from both
- * locations.
- * @returns Returns the `FileEnumerator` class if its requirable, otherwise `undefined`.
- */
-function requireFileEnumerator() {
-  let FileEnumerator;
-
-  // Try getting it from the eslint private / deprecated api
-  try {
-    ({ FileEnumerator } = require('eslint/use-at-your-own-risk'));
-  } catch (e) {
-    // Absorb this if it's MODULE_NOT_FOUND
-    if (e.code !== 'MODULE_NOT_FOUND') {
-      throw e;
-    }
-
-    // If not there, then try getting it from eslint/lib/cli-engine/file-enumerator (moved there in v6)
-    try {
-      ({ FileEnumerator } = require('eslint/lib/cli-engine/file-enumerator'));
-    } catch (e) {
-      // Absorb this if it's MODULE_NOT_FOUND
-      if (e.code !== 'MODULE_NOT_FOUND') {
-        throw e;
-      }
-    }
-  }
-  return FileEnumerator;
-}
-
-/**
- *
- * @param FileEnumerator the `FileEnumerator` class from `eslint`'s internal api
- * @param {string} src path to the src root
- * @param {string[]} extensions list of supported extensions
- * @returns list of files to operate on
- */
-function listFilesUsingFileEnumerator(FileEnumerator, src, extensions) {
-  const e = new FileEnumerator({
-    extensions,
-  });
-
-  const listOfFiles = Array.from(
-    e.iterateFiles(src),
-    ({ filePath, ignored }) => ({
-      ignored,
-      filename: filePath,
-    }),
-  );
-  return listOfFiles;
-}
-
-/**
- * Attempt to require old versions of the file enumeration capability from v6 `eslint` and earlier, and use
- * those functions to provide the list of files to operate on
- * @param {string} src path to the src root
- * @param {string[]} extensions list of supported extensions
- * @returns list of files to operate on
- */
-function listFilesWithLegacyFunctions(src, extensions) {
-  try {
-    // From v5.3 - v6
-    const {
-      listFilesToProcess: originalListFilesToProcess,
-    } = require('eslint/lib/util/glob-utils');
-    return originalListFilesToProcess(src, {
-      extensions,
-    });
-  } catch (e) {
-    // Absorb this if it's MODULE_NOT_FOUND
-    if (e.code !== 'MODULE_NOT_FOUND') {
-      throw e;
-    }
-
-    // Last place to try (pre v5.3)
-    const {
-      listFilesToProcess: originalListFilesToProcess,
-    } = require('eslint/lib/util/glob-util');
-    const patterns = src.concat(
-      flatMap(src, (pattern) => extensions.map((extension) => (/\*\*|\*\./).test(pattern) ? pattern : `${pattern}/**/*${extension}`,
-      ),
-      ),
-    );
-
-    return originalListFilesToProcess(patterns);
-  }
-}
 
 /**
  * Given a src pattern and list of supported extensions, return a list of files to process
@@ -166,18 +34,11 @@ function listFilesToProcess(src, extensions, context) {
     && context.session.isFileIgnored
     && context.session.isDirectoryIgnored
   ) {
-    return listFilesWithModernApi(src, extensions, context.session);
+    const { default: listFiles } = require('../core/listFiles');
+    return listFiles(src, extensions, context.session);
   } else {
-    // Fallback to og FileEnumerator
-    const FileEnumerator = requireFileEnumerator();
-
-    // If we got the FileEnumerator, then let's go with that
-    if (FileEnumerator) {
-      return listFilesUsingFileEnumerator(FileEnumerator, src, extensions);
-    } else {
-      // If not, then we can try even older versions of this capability (listFilesToProcess)
-      return listFilesWithLegacyFunctions(src, extensions);
-    }
+    const { default: legacyListFiles } = require('../core/legacyListFiles');
+    return legacyListFiles(src, extensions);
   }
 }
 
