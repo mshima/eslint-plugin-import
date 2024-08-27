@@ -361,7 +361,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
         } else {
           exports.set(key, { whereUsed: new Set() });
         }
-        const reexport = value.getImport();
+        const reexport =  value.getImport();
         if (!reexport) {
           return;
         }
@@ -502,8 +502,7 @@ const fileIsInPkg = (file) => {
   };
 
   const checkPkgFieldObject = (pkgField) => {
-    const pkgFieldFiles = flatMap(values(pkgField), (value) => typeof value === 'boolean' ? [] : join(basePath, value),
-    );
+    const pkgFieldFiles = flatMap(values(pkgField), (value) => typeof value === 'boolean' ? [] : join(basePath, value));
 
     if (includes(pkgFieldFiles, file)) {
       return true;
@@ -550,8 +549,7 @@ module.exports = {
     type: 'suggestion',
     docs: {
       category: 'Helpful warnings',
-      description:
-        'Forbid modules without exports, or exports without matching import in another module.',
+      description: 'Forbid modules without exports, or exports without matching import in another module.',
       url: docsUrl('no-unused-modules'),
     },
     schema: [{
@@ -620,9 +618,7 @@ module.exports = {
       doPreparation(src, ignoreExports, context);
     }
 
-    const file = context.getPhysicalFilename
-      ? context.getPhysicalFilename()
-      : context.getFilename();
+    const file = context.getPhysicalFilename ? context.getPhysicalFilename() : context.getFilename();
 
     const checkExportPresence = (node) => {
       if (!missingExports) {
@@ -681,17 +677,12 @@ module.exports = {
       exports = exportList.get(file);
 
       if (!exports) {
-        console.error(
-          `file \`${file}\` has no exports. Please update to the latest, and if it still happens, report this on https://github.com/import-js/eslint-plugin-import/issues/2866!`,
-        );
+        console.error(`file \`${file}\` has no exports. Please update to the latest, and if it still happens, report this on https://github.com/import-js/eslint-plugin-import/issues/2866!`);
       }
 
       // special case: export * from
       const exportAll = exports.get(EXPORT_ALL_DECLARATION);
-      if (
-        typeof exportAll !== 'undefined'
-        && exportedValue !== IMPORT_DEFAULT_SPECIFIER
-      ) {
+      if (typeof exportAll !== 'undefined' && exportedValue !== IMPORT_DEFAULT_SPECIFIER) {
         if (exportAll.whereUsed.size > 0) {
           return;
         }
@@ -706,11 +697,11 @@ module.exports = {
       }
 
       // exportsList will always map any imported value of 'default' to 'ImportDefaultSpecifier'
-      const exportsKey =        exportedValue === DEFAULT ? IMPORT_DEFAULT_SPECIFIER : exportedValue;
+      const exportsKey = exportedValue === DEFAULT ? IMPORT_DEFAULT_SPECIFIER : exportedValue;
 
       const exportStatement = exports.get(exportsKey);
 
-      const value =        exportsKey === IMPORT_DEFAULT_SPECIFIER ? DEFAULT : exportsKey;
+      const value = exportsKey === IMPORT_DEFAULT_SPECIFIER ? DEFAULT : exportsKey;
 
       if (typeof exportStatement !== 'undefined') {
         if (exportStatement.whereUsed.size < 1) {
@@ -756,9 +747,7 @@ module.exports = {
           if (specifiers.length > 0) {
             specifiers.forEach((specifier) => {
               if (specifier.exported) {
-                newExportIdentifiers.add(
-                  specifier.exported.name || specifier.exported.value,
-                );
+                newExportIdentifiers.add(specifier.exported.name || specifier.exported.value);
               }
             });
           }
@@ -869,10 +858,7 @@ module.exports = {
         // support for export { value } from 'module'
         if (astNode.type === EXPORT_NAMED_DECLARATION) {
           if (astNode.source) {
-            resolvedPath = resolve(
-              astNode.source.raw.replace(/('|")/g, ''),
-              context,
-            );
+            resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
             astNode.specifiers.forEach((specifier) => {
               const name = specifier.local.name || specifier.local.value;
               if (name === DEFAULT) {
@@ -885,18 +871,12 @@ module.exports = {
         }
 
         if (astNode.type === EXPORT_ALL_DECLARATION) {
-          resolvedPath = resolve(
-            astNode.source.raw.replace(/('|")/g, ''),
-            context,
-          );
+          resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
           newExportAll.add(resolvedPath);
         }
 
         if (astNode.type === IMPORT_DECLARATION) {
-          resolvedPath = resolve(
-            astNode.source.raw.replace(/('|")/g, ''),
-            context,
-          );
+          resolvedPath = resolve(astNode.source.raw.replace(/('|")/g, ''), context);
           if (!resolvedPath) {
             return;
           }
@@ -914,15 +894,9 @@ module.exports = {
           }
 
           astNode.specifiers
-            .filter(
-              (specifier) => specifier.type !== IMPORT_DEFAULT_SPECIFIER
-                && specifier.type !== IMPORT_NAMESPACE_SPECIFIER,
-            )
+            .filter((specifier) => specifier.type !== IMPORT_DEFAULT_SPECIFIER && specifier.type !== IMPORT_NAMESPACE_SPECIFIER)
             .forEach((specifier) => {
-              newImports.set(
-                specifier.imported.name || specifier.imported.value,
-                resolvedPath,
-              );
+              newImports.set(specifier.imported.name || specifier.imported.value, resolvedPath);
             });
         }
       });

@@ -52,13 +52,9 @@ exports.hasValidExtension = hasValidExtension;
 /** @type {import('./ignore').default} */
 exports.default = function ignore(path, context) {
   // check extension whitelist first (cheap)
-  if (!hasValidExtension(path, context)) {
-    return true;
-  }
+  if (!hasValidExtension(path, context)) { return true; }
 
-  if (!('import/ignore' in context.settings)) {
-    return false;
-  }
+  if (!('import/ignore' in context.settings)) { return false; }
   const ignoreStrings = context.settings['import/ignore'];
 
   for (let i = 0; i < ignoreStrings.length; i++) {
