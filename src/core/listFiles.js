@@ -2,15 +2,14 @@ import path from 'path';
 import { readdirSync } from 'fs';
 
 /**
+ * Do a comprehensive walk of the provided src directory, and collect all entries.  Filter out
+ * any directories or entries using the optional filter functions.
+ *
  * This is intended to provide similar capability as the sync api from @nodelib/fs.walk, until `eslint-plugin-import`
  * is willing to modernize and update their minimum node version to at least v16.  I intentionally made the
  * shape of the API (for the part we're using) the same as @nodelib/fs.walk so that that can be swapped in
  * when the repo is ready for it.
- */
-
-/**
- * Do a comprehensive walk of the provided src directory, and collect all entries.  Filter out
- * any directories or entries using the optional filter functions.
+ *
  * @param {string} root - path to the root of the folder we're walking
  * @param {{ deepFilter?: ({name: string, path: string, dirent: Dirent}) => boolean, entryFilter?: ({name: string, path: string, dirent: Dirent}) => boolean }} options
  * @param {{name: string, path: string, dirent: Dirent}} currentEntry - entry for the current directory we're working in
